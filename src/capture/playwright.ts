@@ -4,7 +4,15 @@
  * daily artifacts directory. Handles both correct and broken states —
  * broken states are valuable documentary material.
  */
-import { chromium } from 'playwright'
+// Playwright is an optional dependency — import dynamically so the CLI
+// works without it for users who don't need visual capture.
+let chromium: typeof import('playwright')['chromium'] | undefined
+try {
+  const pw = await import('playwright')
+  chromium = pw.chromium
+} catch {
+  chromium = undefined
+}
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
 import { getArtifactsPath } from '../core/storage.js'
@@ -48,6 +56,15 @@ export async function captureWithPlaywright(
   const artifactsPath = getArtifactsPath(opts.projectPath, opts.date)
   const captures: BreakpointCapture[] = []
   const artifactRefs: string[] = []
+
+  if (!chromium) {
+    return {
+      captures: [],
+      artifactRefs: [],
+      success: false,
+      error: 'Playwright is not installed. Run: npm install playwright && npx playwright install chromium',
+    }
+  }
 
   let browser
   try {

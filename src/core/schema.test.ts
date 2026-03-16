@@ -253,7 +253,7 @@ describe('SessionMeta type', () => {
       session_id: 'sess-001',
       session_date: '2026-03-16',
       project_name: 'my-project',
-      project_path: '/Users/apurvray/my-project',
+      project_path: '/home/user/my-project',
       opened_at: '2026-03-16T09:00:00Z',
       entry_count: 0,
       artifacts_count: 0,

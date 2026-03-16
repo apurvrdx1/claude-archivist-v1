@@ -74,16 +74,15 @@ async function main(): Promise<void> {
 }
 
 function isArchivistOperation(ctx: ToolCallContext): boolean {
-  // Don't trigger when we're writing to documentation_notes or running archivist CLI
+  // Skip triggering on the archivist's own file writes or CLI calls
+  // to prevent self-referential archive prompts.
+  // Note: TodoWrite is intentionally NOT excluded — it is a signal source.
   const filePath = String(ctx.tool_input['file_path'] ?? '')
   const command = String(ctx.tool_input['command'] ?? '')
 
   return (
     filePath.includes('documentation_notes') ||
-    command.includes('archivist') ||
-    ctx.tool_name === 'TodoWrite'
-      ? false // TodoWrite is a signal source, not an archivist op
-      : false
+    command.includes('archivist')
   )
 }
 

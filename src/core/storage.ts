@@ -37,6 +37,16 @@ export function getGeneratedPath(projectPath: string): string {
   return join(projectPath, ARCHIVE_ROOT, GENERATED_DIR)
 }
 
+// ─── Date validation ──────────────────────────────────────────────────────────
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+
+function assertValidDate(date: string): void {
+  if (!DATE_RE.test(date)) {
+    throw new Error(`Invalid date format: "${date}". Expected YYYY-MM-DD.`)
+  }
+}
+
 // ─── Existence checks ─────────────────────────────────────────────────────────
 
 async function fileExists(path: string): Promise<boolean> {
@@ -88,6 +98,7 @@ async function updateGitignore(projectPath: string): Promise<void> {
 // ─── Day folder ───────────────────────────────────────────────────────────────
 
 export async function ensureDayFolder(projectPath: string, date: string): Promise<void> {
+  assertValidDate(date)
   await mkdir(getDayFolderPath(projectPath, date), { recursive: true })
   await mkdir(getArtifactsPath(projectPath, date), { recursive: true })
 }
@@ -118,6 +129,7 @@ export async function appendToLog(
   date: string,
   content: string
 ): Promise<void> {
+  assertValidDate(date)
   const logPath = getLogPath(projectPath, date)
   // Use appendFile (O_APPEND flag) for atomicity — avoids TOCTOU race
   // when multiple tool invocations write entries in the same session.
@@ -127,6 +139,7 @@ export async function appendToLog(
 }
 
 export async function readLog(projectPath: string, date: string): Promise<string> {
+  assertValidDate(date)
   const logPath = getLogPath(projectPath, date)
   const exists = await fileExists(logPath)
   if (!exists) return ''

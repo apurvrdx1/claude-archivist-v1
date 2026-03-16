@@ -88,6 +88,11 @@ If no → skip.
 
 ## Step 6: Write the entry
 
+> **Shell safety:** All user-provided values interpolated into the command below must be
+> single-quoted and must not contain single-quote characters. Strip or escape any `'`
+> characters from user input before constructing the command. If a value contains
+> complex characters, write it to a temp file and pass via stdin instead.
+
 Run the archivist CLI with the collected data:
 
 ```bash

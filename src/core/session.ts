@@ -104,9 +104,9 @@ export async function enableArchiving(
   projectPath: string,
   projectName: string
 ): Promise<ArchivistConfig> {
-  const { DEFAULT_CONFIG } = await import('./schema.js')
+  const { getDefaultConfig } = await import('./schema.js')
   const config: ArchivistConfig = {
-    ...DEFAULT_CONFIG,
+    ...getDefaultConfig(),
     project_name: projectName,
     archiving: true,
   }

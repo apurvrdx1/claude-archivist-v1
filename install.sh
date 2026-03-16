@@ -49,7 +49,7 @@ const settings = JSON.parse(readFileSync('${SETTINGS_FILE}', 'utf-8'));
 if (settings.hooks) {
   for (const event of Object.keys(settings.hooks)) {
     settings.hooks[event] = (settings.hooks[event] || []).filter(
-      h => !JSON.stringify(h).includes('archivist')
+      h => h._id !== 'claude-archivist:post-tool-use' && h._id !== 'claude-archivist:session-start'
     );
     if (settings.hooks[event].length === 0) delete settings.hooks[event];
   }
@@ -102,17 +102,25 @@ log "Dependencies installed"
 
 if [ "$PROJECT_ONLY" = false ]; then
   mkdir -p "$SKILLS_DIR"
-  cp "${ARCHIVIST_DIR}/skill/archive.md" "${SKILLS_DIR}/archive.md"
+  # Inject the resolved ARCHIVIST_PATH so the skill's bash commands work
+  # without requiring the user to set an env var manually.
+  sed "s|{ARCHIVIST_PATH}|${ARCHIVIST_DIR}|g" \
+    "${ARCHIVIST_DIR}/skill/archive.md" > "${SKILLS_DIR}/archive.md"
   log "Skill installed: ~/.claude/skills/archive.md → /archive"
+  log "  ARCHIVIST_PATH resolved to: ${ARCHIVIST_DIR}"
+  warn "  Note: if you move this directory, re-run ./install.sh to update the path."
 fi
 
 # ─── Install hooks into Claude Code settings.json ─────────────────────────────
 
 if [ "$PROJECT_ONLY" = false ]; then
+  if [ ! -d "$CLAUDE_DIR" ]; then
+    err "Claude Code does not appear to be installed (${CLAUDE_DIR} not found)."
+    err "Install Claude Code first: https://claude.ai/download"
+    exit 1
+  fi
   if [ ! -f "$SETTINGS_FILE" ]; then
-    warn "No Claude Code settings.json found at ${SETTINGS_FILE}"
-    warn "Creating one with archivist hooks..."
-    mkdir -p "$CLAUDE_DIR"
+    warn "No Claude Code settings.json found — creating one."
     echo '{}' > "$SETTINGS_FILE"
   fi
 
@@ -133,27 +141,28 @@ const postToolUseHook = {
   description: "claude-archivist: completion signal detection"
 };
 
-// Alternative using tsx (simpler, requires tsx installed)
+// Hooks use a stable _id for precise install/uninstall targeting
 const postToolUseHookTsx = {
+  _id: "claude-archivist:post-tool-use",
   command: "npx --prefix '" + archivistPath + "' tsx '" + archivistPath + "/src/hooks/post-tool-use.ts'",
   description: "claude-archivist: completion signal detection"
 };
 
-// UserPromptSubmit hook — session-start archiving check
 const sessionStartHook = {
+  _id: "claude-archivist:session-start",
   command: "npx --prefix '" + archivistPath + "' tsx '" + archivistPath + "/src/hooks/session-start.ts'",
   description: "claude-archivist: session-start check"
 };
 
-// Remove existing archivist hooks before re-adding
+// Remove existing archivist hooks before re-adding (match by stable _id)
 if (settings.hooks.PostToolUse) {
   settings.hooks.PostToolUse = settings.hooks.PostToolUse.filter(
-    h => !JSON.stringify(h).includes('archivist')
+    h => h._id !== 'claude-archivist:post-tool-use'
   );
 }
 if (settings.hooks.UserPromptSubmit) {
   settings.hooks.UserPromptSubmit = settings.hooks.UserPromptSubmit.filter(
-    h => !JSON.stringify(h).includes('archivist')
+    h => h._id !== 'claude-archivist:session-start'
   );
 }
 

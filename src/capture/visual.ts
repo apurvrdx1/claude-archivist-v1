@@ -97,32 +97,21 @@ export async function buildCaptureContext(
     }
   }
 
-  // Build / polish / testing phases: use Playwright if dev server is running
+  // Build/polish/testing phases (and design phase fallback): use Playwright
+  // Detect once and reuse for both the primary and fallback paths.
   const devServerUrl = await detectDevServer(ports)
 
   if (devServerUrl) {
+    const label = isDesignPhase
+      ? `Dev server at ${devServerUrl} (no design MCP connected)`
+      : `Dev server at ${devServerUrl}`
     return {
       mode: 'playwright',
       available: true,
-      description: `Dev server at ${devServerUrl}`,
+      description: label,
       skillFragment: buildPlaywrightSkillFragment(devServerUrl),
       mcps,
       devServerUrl,
-    }
-  }
-
-  // Fallback: also offer Playwright for design phases if dev server found
-  if (isDesignPhase) {
-    const devUrl = await detectDevServer(ports)
-    if (devUrl) {
-      return {
-        mode: 'playwright',
-        available: true,
-        description: `Dev server at ${devUrl} (no design MCP connected)`,
-        skillFragment: buildPlaywrightSkillFragment(devUrl),
-        mcps,
-        devServerUrl: devUrl,
-      }
     }
   }
 
