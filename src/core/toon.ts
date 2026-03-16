@@ -9,7 +9,7 @@
  *   - Escape sequences: \\ \" \n \r \t
  */
 
-type ToonValue =
+export type ToonValue =
   | string
   | number
   | boolean

@@ -136,6 +136,10 @@ export async function captureSingleBreakpoint(
   width: number,
   outputPath: string
 ): Promise<{ success: boolean; error?: string }> {
+  if (!chromium) {
+    return { success: false, error: 'Playwright is not installed. Run: npm install playwright && npx playwright install chromium' }
+  }
+
   let browser
   try {
     browser = await chromium.launch({ headless: true })

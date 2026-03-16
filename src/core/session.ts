@@ -94,7 +94,7 @@ async function writeSessionEvent(
     timestamp: new Date().toISOString(),
     ...data,
   }
-  const toon = encodeToon(record)
+  const toon = encodeToon(record as Record<string, import('./toon.js').ToonValue>)
   await appendToLog(projectPath, date, `${separator}\n${toon}`)
 }
 

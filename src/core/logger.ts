@@ -189,7 +189,7 @@ export function entryToToon(entry: ArchiveEntry): string {
     record['tags'] = { narrative_tags: entry.tags.narrative_tags }
   }
 
-  const toon = encodeToon(record)
+  const toon = encodeToon(record as Record<string, import('./toon.js').ToonValue>)
   return `${separator}\n${toon}`
 }
 

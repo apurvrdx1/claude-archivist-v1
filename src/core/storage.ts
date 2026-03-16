@@ -106,7 +106,7 @@ export async function ensureDayFolder(projectPath: string, date: string): Promis
 // ─── Config I/O ───────────────────────────────────────────────────────────────
 
 export async function writeConfig(projectPath: string, config: ArchivistConfig): Promise<void> {
-  const toon = encodeToon(config as unknown as Record<string, unknown>)
+  const toon = encodeToon(config as unknown as Record<string, import('./toon.js').ToonValue>)
   await writeFile(getConfigPath(projectPath), toon, 'utf-8')
 }
 
