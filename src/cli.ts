@@ -8,6 +8,9 @@ import { buildEntry, writeEntry, nextEntryId } from './core/logger.js'
 import { countEntriesInLog } from './core/session.js'
 import { InteractionType, Phase, Importance, EntryStatus } from './core/schema.js'
 import { buildCaptureContext, runPlaywrightCapture } from './capture/visual.js'
+import { queryEntries } from './generate/query.js'
+import { generateContent } from './generate/render.js'
+import type { OutputFormat } from './generate/templates.js'
 
 const program = new Command()
 
@@ -302,6 +305,90 @@ program
     console.log(`  Source:    ${ctx.description}`)
     console.log(`  MCPs:      ${ctx.mcps.summary}`)
     if (ctx.devServerUrl) console.log(`  Dev server: ${ctx.devServerUrl}`)
+  })
+
+// ─── query ────────────────────────────────────────────────────────────────────
+
+program
+  .command('query')
+  .description('List archive entries matching optional filters')
+  .option('--from <date>', 'Start date YYYY-MM-DD')
+  .option('--to <date>', 'End date YYYY-MM-DD')
+  .option('--date <date>', 'Exact date (shorthand for --from=date --to=date)')
+  .option('--phase <phase>', 'Filter by project phase')
+  .option('--importance <level>', 'Filter by importance (low/medium/high/critical)')
+  .option('--tag <tag>', 'Filter by narrative tag')
+  .option('--type <type>', 'Filter by interaction type')
+  .action(async (opts) => {
+    const path = projectPath()
+    const filter = {
+      from: opts.date ?? opts.from,
+      to: opts.date ?? opts.to,
+      phase: opts.phase,
+      importance: opts.importance,
+      tag: opts.tag,
+      type: opts.type,
+    }
+
+    const result = await queryEntries(path, filter)
+
+    if (result.total === 0) {
+      console.log('No entries found matching those filters.')
+      return
+    }
+
+    console.log(`Found ${result.total} entries across ${result.dates.length} day(s):\n`)
+    for (const entry of result.entries) {
+      const tags = entry.tags?.narrative_tags?.join(', ') ?? ''
+      const tagStr = tags ? ` [${tags}]` : ''
+      console.log(`  ${entry.entry_id}  ${entry.phase}/${entry.importance}  ${entry.objective}${tagStr}`)
+    }
+  })
+
+// ─── generate ─────────────────────────────────────────────────────────────────
+
+program
+  .command('generate <format>')
+  .description('Generate content from archive entries (blog|case-study|social|thread)')
+  .option('--from <date>', 'Start date YYYY-MM-DD')
+  .option('--to <date>', 'End date YYYY-MM-DD')
+  .option('--date <date>', 'Exact date')
+  .option('--phase <phase>', 'Filter by project phase')
+  .option('--importance <level>', 'Filter by importance')
+  .option('--tag <tag>', 'Filter by narrative tag')
+  .option('--type <type>', 'Filter by interaction type')
+  .option('--output <dir>', 'Output directory (default: documentation_notes/generated_content/)')
+  .action(async (format: string, opts) => {
+    const validFormats = ['blog', 'case-study', 'social', 'thread']
+    if (!validFormats.includes(format)) {
+      console.log(`Unknown format: "${format}". Choose from: ${validFormats.join(', ')}`)
+      process.exit(1)
+    }
+
+    const path = projectPath()
+    const filter = {
+      from: opts.date ?? opts.from,
+      to: opts.date ?? opts.to,
+      phase: opts.phase,
+      importance: opts.importance,
+      tag: opts.tag,
+      type: opts.type,
+    }
+
+    console.log(`Generating ${format}...`)
+
+    const result = await generateContent({
+      projectPath: path,
+      format: format as OutputFormat,
+      filter,
+      outputPath: opts.output,
+    })
+
+    if (result.entryCount === 0) {
+      console.log('No entries matched the filters — output is an empty template.')
+    } else {
+      console.log(`✓ ${result.entryCount} entries → ${result.outputFile}`)
+    }
   })
 
 program.parse()
