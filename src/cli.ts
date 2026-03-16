@@ -7,6 +7,7 @@ import { openSession, closeSession, getSessionStatus, enableArchiving, formatSes
 import { buildEntry, writeEntry, nextEntryId } from './core/logger.js'
 import { countEntriesInLog } from './core/session.js'
 import { InteractionType, Phase, Importance, EntryStatus } from './core/schema.js'
+import { buildCaptureContext, runPlaywrightCapture } from './capture/visual.js'
 
 const program = new Command()
 
@@ -228,6 +229,79 @@ program
     console.log(`Threshold: every ${status.config!.pause_threshold} tool calls`)
     console.log(`Entries today: ${entryCount}`)
     console.log(`Log: documentation_notes/records/${date}/daily_log.toon`)
+  })
+
+// ─── capture ──────────────────────────────────────────────────────────────────
+
+program
+  .command('capture')
+  .description('Take a visual capture of the current UI or design state')
+  .option('--url <url>', 'URL to screenshot (auto-detected if omitted)')
+  .option('--description <text>', 'What is being captured', 'ui-state')
+  .option('--state <text>', 'State label: broken, fixed, initial, etc.', '')
+  .option('--breakpoints <list>', 'Comma-separated widths in px', '375,768,1280')
+  .action(async (opts) => {
+    const path = projectPath()
+    const date = today()
+
+    const ctx = await buildCaptureContext(path)
+
+    if (!ctx.available) {
+      console.log('No capture source available.')
+      console.log('  Start a dev server, or connect Figma/Paper MCP to enable visual capture.')
+      return
+    }
+
+    console.log(`Capture source: ${ctx.description}`)
+
+    let url = opts.url
+    if (!url && ctx.devServerUrl) url = ctx.devServerUrl
+
+    if (ctx.mode === 'playwright' && url) {
+      const breakpoints = (opts.breakpoints as string)
+        .split(',')
+        .map((b: string) => parseInt(b.trim(), 10))
+        .filter(Boolean)
+
+      console.log(`Capturing ${url} at ${breakpoints.join('px, ')}px...`)
+
+      const result = await runPlaywrightCapture({
+        projectPath: path,
+        date,
+        url,
+        description: opts.description,
+        state: opts.state,
+        breakpoints,
+      })
+
+      if (result.success) {
+        console.log(`✓ Captured ${result.artifactRefs.length} screenshot(s):`)
+        result.artifactRefs.forEach(r => console.log(`  ${r}`))
+      } else {
+        console.log(`✗ Capture failed: ${result.error}`)
+      }
+    } else if (ctx.mode === 'figma' || ctx.mode === 'paper') {
+      console.log(`${ctx.mode === 'figma' ? 'Figma' : 'Paper.design'} MCP detected.`)
+      console.log('Use the /archive skill inside a Claude Code session to capture design frames.')
+      console.log(`  Server key: ${ctx.mode === 'figma' ? ctx.mcps.figmaServerKey : ctx.mcps.paperServerKey}`)
+    }
+  })
+
+// ─── capture-context ──────────────────────────────────────────────────────────
+
+program
+  .command('capture-context')
+  .description('Show what visual capture sources are available for this project')
+  .action(async () => {
+    const path = projectPath()
+    const ctx = await buildCaptureContext(path)
+
+    console.log(`Visual capture context`)
+    console.log(`  Mode:      ${ctx.mode}`)
+    console.log(`  Available: ${ctx.available ? 'yes' : 'no'}`)
+    console.log(`  Source:    ${ctx.description}`)
+    console.log(`  MCPs:      ${ctx.mcps.summary}`)
+    if (ctx.devServerUrl) console.log(`  Dev server: ${ctx.devServerUrl}`)
   })
 
 program.parse()
